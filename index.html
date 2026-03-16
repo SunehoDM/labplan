@@ -595,7 +595,7 @@ function saveEntry(){
 function delEntry(){if(editId){entries=entries.filter(e=>e.id!==editId);save();closeModal();render();if(view==='task')renderTasks();}}
 
 function startGCal(){
-  if(GCAL_CLIENT_ID==='YOUR_GOOGLE_CLIENT_ID'){alert('Add your Google OAuth Client ID first.');return;}
+  if(GCAL_CLIENT_ID==='329885901714-88m62paiquaami8ebiqufsjq8t30hbce.apps.googleusercontent.com'){alert('Add your Google OAuth Client ID first.');return;}
   // Build redirect URI - must exactly match what you put in Google Cloud Console
   const redirect=location.origin+'/labplan/';
   const p=new URLSearchParams({
