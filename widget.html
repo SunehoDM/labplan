@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LabPlan Widget</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:300px;background:transparent;font-family:'DM Sans',system-ui,sans-serif;color:#1a1714}
+body{padding:8px}
+.widget{
+  background:rgba(250,248,245,0.68);
+  border:1px solid rgba(255,255,255,0.85);
+  border-radius:18px;
+  padding:16px 18px;
+  box-shadow:
+    0 8px 32px rgba(100,90,80,0.16),
+    0 1px 0 rgba(255,255,255,0.9) inset,
+    0 -1px 0 rgba(160,150,140,0.1) inset;
+  position:relative;overflow:hidden;
+  backdrop-filter:blur(20px) saturate(160%);
+  -webkit-backdrop-filter:blur(20px) saturate(160%);
+}
+.widget::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(145deg,rgba(255,255,255,0.38) 0%,rgba(255,255,255,0.04) 50%,rgba(255,255,255,0) 100%);
+  border-radius:18px;pointer-events:none;
+}
+.widget::after{
+  content:'';position:absolute;top:0;left:0;right:0;height:50%;
+  background:linear-gradient(180deg,rgba(255,255,255,0.18) 0%,rgba(255,255,255,0) 100%);
+  border-radius:18px 18px 0 0;pointer-events:none;
+}
+.header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;position:relative;z-index:1}
+.logo{font-size:13px;font-weight:600;color:#2d2a26;letter-spacing:-0.01em}
+.logo span{color:#5b4fcf}
+.date{font-size:11px;color:#8a8480;font-family:'DM Mono',monospace;font-weight:500}
+
+.week-strip{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:12px;position:relative;z-index:1}
+.wday{text-align:center;padding:4px 1px;border-radius:8px;border:1px solid rgba(216,210,200,0.5)}
+.wday.today{background:rgba(236,234,250,0.8);border-color:rgba(160,154,224,0.6)}
+.wday-name{font-size:8px;font-weight:600;color:#8a8480;text-transform:uppercase;letter-spacing:0.05em;font-family:'DM Mono',monospace}
+.wday-num{font-size:13px;font-weight:600;color:#4a4540;font-family:'DM Mono',monospace;line-height:1.2}
+.wday.today .wday-num{color:#3a308a}
+.wday-dots{display:flex;justify-content:center;gap:2px;margin-top:2px;min-height:5px}
+.wdot{width:4px;height:4px;border-radius:50%}
+
+.divider{height:1px;background:rgba(200,195,188,0.4);margin:0 0 10px;position:relative;z-index:1}
+
+.section-label{font-size:9px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#b0aaa3;margin-bottom:6px;font-family:'DM Mono',monospace;position:relative;z-index:1}
+
+.entry{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:9px;margin-bottom:3px;position:relative;z-index:1;border:1px solid rgba(210,205,198,0.4)}
+.edot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.etitle{font-size:12px;color:#1a1714;flex:1;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.etitle.done{text-decoration:line-through;color:#b0aaa3}
+.etime{font-size:10px;color:#8a8480;font-family:'DM Mono',monospace;white-space:nowrap}
+
+.upcoming-entry{display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:7px;margin-bottom:2px;position:relative;z-index:1}
+.udate{font-size:9px;color:#8a8480;font-family:'DM Mono',monospace;white-space:nowrap;min-width:28px}
+
+.empty{font-size:11px;color:#b0aaa3;font-style:italic;padding:4px 8px;position:relative;z-index:1}
+.refresh{font-size:10px;color:#c0bbb5;text-align:right;margin-top:10px;font-family:'DM Mono',monospace;position:relative;z-index:1}
+</style>
+</head>
+<body>
+<div class="widget">
+  <div class="header">
+    <span class="logo">lab<span>plan</span></span>
+    <span class="date" id="hdate"></span>
+  </div>
+  <div class="week-strip" id="week-strip"></div>
+  <div class="divider"></div>
+  <div class="section-label">today</div>
+  <div id="today-list"></div>
+  <div class="section-label" id="upcoming-label" style="margin-top:10px;display:none">upcoming</div>
+  <div id="upcoming-list"></div>
+  <div class="refresh" id="refresh-time"></div>
+</div>
+<script>
+const ICONS={
+  exp:`<path d="M6 2v5L2 13h12L10 7V2" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 2h5" stroke-width="1.6" stroke-linecap="round"/>`,
+  mail:`<rect x="2" y="4" width="12" height="9" rx="1.5" stroke-width="1.6"/><path d="M2 5l6 5 6-5" stroke-width="1.6" stroke-linecap="round"/>`,
+  jc:`<rect x="3" y="1" width="10" height="14" rx="1.5" stroke-width="1.6"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3" stroke-width="1.4" stroke-linecap="round"/>`,
+  paper:`<path d="M9 1H4a1 1 0 00-1 1v12a1 1 0 001 1h8a1 1 0 001-1V5L9 1z" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 1v4h4M5.5 8.5h5M5.5 11h5" stroke-width="1.4" stroke-linecap="round"/>`,
+  analysis:`<rect x="2" y="11" width="3" height="4" rx="1" stroke-width="1.5"/><rect x="6.5" y="7" width="3" height="8" rx="1" stroke-width="1.5"/><rect x="11" y="4" width="3" height="11" rx="1" stroke-width="1.5"/>`,
+  official:`<path d="M8 2L2 6v8h12V6L8 2z" stroke-width="1.6" stroke-linejoin="round"/><rect x="6" y="9" width="4" height="5" rx="0.5" stroke-width="1.4"/>`,
+  personal:`<circle cx="8" cy="5.5" r="3" stroke-width="1.6"/><path d="M2 14c0-3.314 2.686-5 6-5s6 1.686 6 5" stroke-width="1.6" stroke-linecap="round"/>`,
+  planexp:`<rect x="2" y="2" width="12" height="12" rx="2" stroke-width="1.6"/><path d="M5 8h6M8 5v6" stroke-width="1.5" stroke-linecap="round"/>`,
+  meet:`<circle cx="5.5" cy="5" r="2.5" stroke-width="1.5"/><path d="M1 13c0-2.5 2-4 4.5-4" stroke-width="1.5" stroke-linecap="round"/><circle cx="11" cy="5" r="2.5" stroke-width="1.5"/><path d="M15 13c0-2.5-2-4-4.5-4" stroke-width="1.5" stroke-linecap="round"/>`,
+  reminder:`<path d="M8 2a5 5 0 015 5v3l1.5 2H1.5L3 10V7a5 5 0 015-5z" stroke-width="1.5" stroke-linejoin="round"/><path d="M6.5 13.5a1.5 1.5 0 003 0" stroke-width="1.5" stroke-linecap="round"/>`,
+  reagent:`<path d="M6 2h4M7 2v4.5L4 13h8L9 6.5V2" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.5 10.5h7" stroke-width="1.3" stroke-linecap="round"/>`,
+};
+const CATS=[
+  {id:'exp',bg:'#edeaff',border:'#9b8ee0',text:'#2d1f80'},
+  {id:'mail',bg:'#e3eeff',border:'#7aaee8',text:'#1a3870'},
+  {id:'jc',bg:'#ffeaea',border:'#e08080',text:'#701a1a'},
+  {id:'paper',bg:'#fffae0',border:'#d4b840',text:'#503800'},
+  {id:'analysis',bg:'#e2f5ee',border:'#52be94',text:'#0a3d28'},
+  {id:'official',bg:'#fff1e0',border:'#e0a050',text:'#5a2800'},
+  {id:'personal',bg:'#ffedf5',border:'#e090b8',text:'#600838'},
+  {id:'planexp',bg:'#ecebff',border:'#9a92f0',text:'#281878'},
+  {id:'meet',bg:'#e0f5f5',border:'#50c0c0',text:'#0a3838'},
+  {id:'reminder',bg:'#fffae0',border:'#d8c040',text:'#403000'},
+  {id:'reagent',bg:'#e2faf2',border:'#50d098',text:'#0a3820'},
+];
+function catById(id){return CATS.find(c=>c.id===id)||CATS[0];}
+function fmt(d){return d.toISOString().split('T')[0];}
+function icon(id,color,sz){sz=sz||11;return `<svg width="${sz}" height="${sz}" viewBox="0 0 16 16" fill="none" style="flex-shrink:0">${(ICONS[id]||ICONS.exp).replace(/stroke-width/g,`stroke="${color}" stroke-width`)}</svg>`;}
+function getEntries(){try{return JSON.parse(localStorage.getItem('labplan-entries')||'[]');}catch{return[];}}
+
+function render(){
+  const entries=getEntries();
+  const now=new Date();
+  const todS=fmt(now);
+  const DN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  document.getElementById('hdate').textContent=`${DN[now.getDay()]} ${now.getDate()} ${MN[now.getMonth()]}`;
+
+  // Week strip
+  const wd=now.getDay()===0?6:now.getDay()-1;
+  const ws=new Date(now);ws.setDate(now.getDate()-wd);
+  let wHtml='';
+  for(let i=0;i<7;i++){
+    const d=new Date(ws);d.setDate(ws.getDate()+i);
+    const ds=fmt(d);const isT=ds===todS;
+    const de=entries.filter(e=>e.date===ds).slice(0,3);
+    const dots=de.map(e=>`<span class="wdot" style="background:${catById(e.cat).border}"></span>`).join('');
+    wHtml+=`<div class="wday${isT?' today':''}">
+      <div class="wday-name">${['M','T','W','T','F','S','S'][i]}</div>
+      <div class="wday-num">${d.getDate()}</div>
+      <div class="wday-dots">${dots}</div>
+    </div>`;
+  }
+  document.getElementById('week-strip').innerHTML=wHtml;
+
+  // Today
+  const te=entries.filter(e=>e.date===todS).sort((a,b)=>(a.startTime||'99').localeCompare(b.startTime||'99'));
+  const tl=document.getElementById('today-list');
+  tl.innerHTML=te.length?te.map(e=>{const c=catById(e.cat);return `<div class="entry" style="background:${c.bg}">
+    <span class="edot" style="background:${c.border}"></span>
+    ${icon(e.cat,c.text,11)}
+    <span class="etitle${e.done?' done':''}" style="color:${c.text}">${e.title}</span>
+    ${e.startTime?`<span class="etime">${e.startTime}</span>`:''}
+  </div>`;}).join(''):`<div class="empty">nothing today</div>`;
+
+  // Upcoming
+  const up=[];
+  for(let d=1;d<=7&&up.length<4;d++){
+    const fd=new Date(now);fd.setDate(now.getDate()+d);const fds=fmt(fd);
+    entries.filter(e=>e.date===fds&&!e.done).slice(0,2).forEach(e=>up.push({...e,_ds:fds.slice(5).replace('-','/')}));
+  }
+  const ul=document.getElementById('upcoming-list');
+  const ull=document.getElementById('upcoming-label');
+  if(up.length){
+    ull.style.display='block';
+    ul.innerHTML=up.slice(0,4).map(e=>{const c=catById(e.cat);return `<div class="upcoming-entry" style="background:${c.bg};border-radius:7px;padding:4px 8px">
+      <span class="edot" style="background:${c.border}"></span>
+      ${icon(e.cat,c.text,10)}
+      <span style="font-size:11px;color:${c.text};flex:1;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.title}</span>
+      <span class="udate">${e._ds}</span>
+    </div>`;}).join('');
+  } else {ull.style.display='none';ul.innerHTML='';}
+
+  document.getElementById('refresh-time').textContent=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+}
+render();
+setInterval(render,60000);
+</script>
+</body>
+</html>

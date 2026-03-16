@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=LabPlan Widget
+Comment=LabPlan desktop calendar widget
+Exec=/home/YOUR_USERNAME/labplan/launch-widget.sh
+Icon=utilities-calendar
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+X-KDE-autostart-after=panel
