@@ -86,14 +86,30 @@ body{height:100%;min-height:100vh;background:#eee9e2;font-family:-apple-system,'
 .dvtitle{font-size:14px;font-weight:700;color:var(--t)}
 .back-btn{background:var(--sf2);border:1px solid var(--bd);color:var(--t2);padding:4px 10px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:4px}
 .back-btn:hover{color:var(--t);background:var(--bd)}
-.dvscroll{flex:1;overflow-y:auto;padding:6px 12px}
-.tblock{display:flex;gap:9px;min-height:44px;border-top:1px solid var(--bd);padding:4px 0}
-.tlabel{width:40px;font-size:10px;color:var(--t3);flex-shrink:0;padding-top:3px;text-align:right;font-weight:600}
-.tevents{flex:1;display:flex;flex-direction:column;gap:3px}
-.devt{border-radius:7px;padding:6px 9px;cursor:pointer;display:flex;align-items:flex-start;gap:7px;border-left:3px solid transparent}
+.dvscroll{flex:1;overflow-y:auto;padding:0}
+.tblock{display:flex;gap:0;min-height:52px;position:relative;cursor:pointer}
+.tblock:hover .tblock-bg{background:var(--ac-bg)}
+.tblock-bg{position:absolute;inset:0;border-top:1px solid var(--bd);transition:background .1s;z-index:0}
+.tblock:first-child .tblock-bg{border-top:none}
+.tlabel{width:52px;flex-shrink:0;padding:6px 10px 0 0;text-align:right;position:relative;z-index:1}
+.tlabel-hour{font-size:11px;font-weight:700;color:var(--t2);line-height:1}
+.tlabel-min{font-size:9px;color:var(--t3);font-weight:500}
+.tevents{flex:1;padding:5px 12px 5px 0;display:flex;flex-direction:column;gap:3px;position:relative;z-index:1;min-height:52px}
+.tblock-hint{font-size:10px;color:var(--t3);opacity:0;transition:opacity .15s;padding-top:2px;font-style:italic}
+.tblock:hover .tblock-hint{opacity:1}
+.devt{border-radius:8px;padding:7px 10px;cursor:pointer;display:flex;align-items:flex-start;gap:8px;border-left:3px solid transparent;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.devt:hover{filter:brightness(.97)}
 .devt-title{font-size:12px;font-weight:700}
-.devt-note{font-size:11px;margin-top:1px;opacity:.72}
+.devt-note{font-size:11px;margin-top:2px;opacity:.72}
 .devt-time{font-size:10px;margin-left:auto;white-space:nowrap;padding-top:1px;font-weight:600}
+/* custom date field */
+.date-fields{display:flex;align-items:center;gap:4px}
+.date-fields input{background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:7px 0;color:var(--t);font-size:13px;outline:none;font-family:inherit;font-weight:500;text-align:center}
+.date-fields input:focus{border-color:var(--ac);box-shadow:0 0 0 3px rgba(91,79,207,.1)}
+.date-fields .df-sep{color:var(--t3);font-weight:700;font-size:14px;flex-shrink:0}
+.df-dd{width:42px}
+.df-mm{width:42px}
+.df-yyyy{width:58px}
 
 /* TASKS */
 .tview{flex:1;overflow-y:auto;padding:12px}
@@ -219,7 +235,16 @@ body{height:100%;min-height:100vh;background:#eee9e2;font-family:-apple-system,'
   <h3 id="mtitle">new entry</h3>
   <div class="f"><label>title</label><input id="ft" placeholder="what needs to happen?"></div>
   <div class="f"><label>category</label><div class="cgrid" id="cpicker"></div></div>
-  <div class="f"><label>date</label><input type="date" id="fd" lang="en-GB"></div>
+  <div class="f"><label>date</label>
+    <div class="date-fields">
+      <input class="df-dd" id="fd-dd" type="number" min="1" max="31" placeholder="DD" oninput="syncDate()">
+      <span class="df-sep">/</span>
+      <input class="df-mm" id="fd-mm" type="number" min="1" max="12" placeholder="MM" oninput="syncDate()">
+      <span class="df-sep">/</span>
+      <input class="df-yyyy" id="fd-yyyy" type="number" min="2020" max="2099" placeholder="YYYY" oninput="syncDate()">
+    </div>
+    <input type="hidden" id="fd">
+  </div>
   <div class="f"><label>time (optional — needed for reminders)</label>
     <div class="t2col"><input type="time" id="fs"><input type="time" id="fe"></div>
   </div>
@@ -361,11 +386,32 @@ function renderDay(ds){
   const byH={};
   de.forEach(e=>{const h=e.startTime?parseInt(e.startTime.split(':')[0]):null;const k=h!=null?h:'x';if(!byH[k])byH[k]=[];byH[k].push(e);});
   let html='';
-  if(byH.x&&byH.x.length)html+=`<div class="tblock"><div class="tlabel">all day</div><div class="tevents">${byH.x.map(evtHtml).join('')}</div></div>`;
-  for(let h=0;h<24;h++){const evs=byH[h]||[];const lb=h===0?'12am':h<12?h+'am':h===12?'12pm':(h-12)+'pm';html+=`<div class="tblock"><div class="tlabel">${lb}</div><div class="tevents">${evs.map(evtHtml).join('')}</div></div>`;}
+  if(byH.x&&byH.x.length){
+    html+=`<div class="tblock" onclick="openModalAtHour('${ds}',null)">
+      <div class="tblock-bg"></div>
+      <div class="tlabel" style="padding-top:8px"><span class="tlabel-hour" style="color:var(--t3);font-size:9px">all<br>day</span></div>
+      <div class="tevents">${byH.x.map(evtHtml).join('')}<div class="tblock-hint">+ add here</div></div>
+    </div>`;
+  }
+  for(let h=0;h<24;h++){
+    const evs=byH[h]||[];
+    const isPM=h>=12;
+    const disp=h===0?'12':h<=12?String(h):String(h-12);
+    const ampm=h<12?'am':'pm';
+    const isNow=ds===tod()&&new Date().getHours()===h;
+    html+=`<div class="tblock" onclick="openModalAtHour('${ds}',${h})">
+      <div class="tblock-bg"${isNow?' style="background:rgba(91,79,207,.06)"':''}></div>
+      <div class="tlabel">
+        <span class="tlabel-hour" style="${isNow?'color:var(--ac)':''}">${disp}</span>
+        <span class="tlabel-min" style="${isNow?'color:var(--ac)':''}">${ampm}</span>
+      </div>
+      <div class="tevents">${evs.map(evtHtml).join('')}${!evs.length?'<div class="tblock-hint">+ add here</div>':''}</div>
+    </div>`;
+  }
   const sc=document.getElementById('dvscroll');sc.innerHTML=html;
   const fh=Object.keys(byH).filter(k=>k!=='x').map(Number).sort((a,b)=>a-b)[0];
-  if(fh!=null)setTimeout(()=>{sc.scrollTop=Math.max(0,fh*44-80);},30);
+  const scrollTo=fh!=null?fh:new Date().getHours();
+  setTimeout(()=>{sc.scrollTop=Math.max(0,scrollTo*52-80);},30);
 }
 function evtHtml(e){
   const c=C(e.cat);
@@ -407,7 +453,29 @@ function renderGlass(){
 function toggleDone(id){const e=entries.find(x=>x.id===id);if(e){e.done=!e.done;save();render();if(view==='task')renderTasks();if(view==='day')renderDay(selDay);}}
 function delById(id){entries=entries.filter(e=>e.id!==id);save();render();if(view==='task')renderTasks();}
 
-function selRem(v){
+function syncDate(){
+  const dd=String(document.getElementById('fd-dd').value).padStart(2,'0');
+  const mm=String(document.getElementById('fd-mm').value).padStart(2,'0');
+  const yyyy=document.getElementById('fd-yyyy').value;
+  if(dd&&mm&&yyyy&&yyyy.length===4) document.getElementById('fd').value=`${yyyy}-${mm}-${dd}`;
+}
+function setDateFields(iso){
+  if(!iso){const t=new Date();document.getElementById('fd-dd').value=t.getDate();document.getElementById('fd-mm').value=t.getMonth()+1;document.getElementById('fd-yyyy').value=t.getFullYear();document.getElementById('fd').value=fmt(t);return;}
+  const[y,m,d]=iso.split('-');
+  document.getElementById('fd-dd').value=parseInt(d);
+  document.getElementById('fd-mm').value=parseInt(m);
+  document.getElementById('fd-yyyy').value=y;
+  document.getElementById('fd').value=iso;
+}
+function openModalAtHour(ds,h){
+  openModal(ds);
+  if(h!==null){
+    const hh=String(h).padStart(2,'0');
+    const eh=String(Math.min(h+1,23)).padStart(2,'0');
+    document.getElementById('fs').value=`${hh}:00`;
+    document.getElementById('fe').value=`${eh}:00`;
+  }
+}
   selRemMin=selRemMin===v?null:v;
   document.querySelectorAll('.rem-btn').forEach(b=>b.classList.toggle('on',selRemMin!==null&&parseInt(b.dataset.v)===selRemMin));
   const n=document.getElementById('rnote');
@@ -424,7 +492,7 @@ function openModal(date){
   editId=null;
   document.getElementById('mtitle').textContent='new entry';
   document.getElementById('ft').value='';
-  document.getElementById('fd').value=date||selDay||tod();
+  setDateFields(date||selDay||tod());
   document.getElementById('fs').value='';document.getElementById('fe').value='';document.getElementById('fn').value='';
   document.getElementById('mdel').style.display='none';
   resetRem(null);buildCP();selCat='exp';hlCP();
@@ -437,7 +505,7 @@ function editEntry(id){
   editId=id;
   document.getElementById('mtitle').textContent='edit entry';
   document.getElementById('ft').value=e.title;
-  document.getElementById('fd').value=e.date;
+  setDateFields(e.date);
   document.getElementById('fs').value=e.startTime||'';
   document.getElementById('fe').value=e.endTime||'';
   document.getElementById('fn').value=e.notes||'';
