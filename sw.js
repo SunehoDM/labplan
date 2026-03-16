@@ -1,4 +1,4 @@
-const CACHE = 'labplan-v1';
+const CACHE = 'labplan-v4';
 const ASSETS = [
   '/labplan/',
   '/labplan/index.html',
