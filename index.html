@@ -306,7 +306,7 @@ let selRemMin=null;
 
 function save(){localStorage.setItem('lp-v3',JSON.stringify(entries));}
 function C(id){return CATS.find(c=>c.id===id)||CATS[0];}
-function fmt(d){return d.toISOString().split('T')[0];}
+function fmt(d){const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');const dd=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${dd}`;}
 function tod(){return fmt(new Date());}
 function SI(id,col,sz){
   sz=sz||11;
@@ -366,7 +366,7 @@ function renderMonth(){
   for(let d=1;d<=dim;d++)cells.push({d:new Date(yr,mn,d),other:false});
   while(cells.length%7!==0)cells.push({d:new Date(yr,mn+1,cells.length-dim-dow+1),other:true});
   document.getElementById('mgrid').innerHTML=cells.map(({d,other})=>{
-    const ds=fmt(d);const isT=d.toDateString()===new Date().toDateString();
+    const ds=fmt(d);const isT=ds===tod();
     const de=entries.filter(e=>e.date===ds&&(!filterCat||e.cat===filterCat));
     const show=de.slice(0,3),more=de.length-3;
     return `<div class="dcell${isT?' today':''}${other?' other':''}" onclick="openDay('${ds}')">
@@ -454,10 +454,12 @@ function toggleDone(id){const e=entries.find(x=>x.id===id);if(e){e.done=!e.done;
 function delById(id){entries=entries.filter(e=>e.id!==id);save();render();if(view==='task')renderTasks();}
 
 function syncDate(){
-  const dd=String(document.getElementById('fd-dd').value).padStart(2,'0');
-  const mm=String(document.getElementById('fd-mm').value).padStart(2,'0');
+  const dd=document.getElementById('fd-dd').value;
+  const mm=document.getElementById('fd-mm').value;
   const yyyy=document.getElementById('fd-yyyy').value;
-  if(dd&&mm&&yyyy&&yyyy.length===4) document.getElementById('fd').value=`${yyyy}-${mm}-${dd}`;
+  if(dd&&mm&&yyyy&&yyyy.length===4){
+    document.getElementById('fd').value=`${yyyy}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
+  }
 }
 function setDateFields(iso){
   if(!iso){const t=new Date();document.getElementById('fd-dd').value=t.getDate();document.getElementById('fd-mm').value=t.getMonth()+1;document.getElementById('fd-yyyy').value=t.getFullYear();document.getElementById('fd').value=fmt(t);return;}
@@ -578,6 +580,10 @@ document.addEventListener('keydown',ev=>{
   if(ev.key==='n'&&!['INPUT','TEXTAREA','SELECT'].includes(ev.target.tagName))openModal();
 });
 document.getElementById('modal').addEventListener('click',function(ev){if(ev.target===this)closeModal();});
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('/labplan/sw.js').catch(()=>{});
+}
 
 handleOAuth();
 render();
