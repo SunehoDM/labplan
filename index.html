@@ -478,6 +478,7 @@ function openModalAtHour(ds,h){
     document.getElementById('fe').value=`${eh}:00`;
   }
 }
+function selRem(v){
   selRemMin=selRemMin===v?null:v;
   document.querySelectorAll('.rem-btn').forEach(b=>b.classList.toggle('on',selRemMin!==null&&parseInt(b.dataset.v)===selRemMin));
   const n=document.getElementById('rnote');
