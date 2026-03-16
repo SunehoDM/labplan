@@ -324,7 +324,7 @@ const CATS=[
   {id:'reminder', label:'Reminder',   bg:'#fffae0',bd:'#d8c040',tx:'#403000'},
   {id:'reagent',  label:'Reagents',   bg:'#e2faf2',bd:'#50d098',tx:'#0a3820'},
 ];
-const GCAL_CLIENT_ID='329885901714-88m62paiquaami8ebiqufsjq8t30hbce.apps.googleusercontent.com';
+const GCAL_CLIENT_ID='YOUR_GOOGLE_CLIENT_ID';
 const GCAL_SCOPE='https://www.googleapis.com/auth/calendar.events';
 
 let entries=JSON.parse(localStorage.getItem('lp-v3')||'[]');
@@ -391,7 +391,8 @@ function renderSidebar(){
 function renderGCalUI(){
   const el=document.getElementById('gcal-ui');
   if(gcalToken){
-    el.innerHTML=`<div class="gcal-ok"><svg width="12" height="12" fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#2a6e3a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> connected <button onclick="disconnectGCal()" style="margin-left:auto;background:none;border:none;font-size:11px;color:#2a6e3a;cursor:pointer;text-decoration:underline;font-weight:600">disconnect</button></div>`;
+    el.innerHTML=`<div class="gcal-ok"><svg width="12" height="12" fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#2a6e3a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> connected <button onclick="fetchFromGCal().then(()=>{render();toast('Synced ✓');})" style="margin-left:auto;background:none;border:none;font-size:11px;color:#2a6e3a;cursor:pointer;text-decoration:underline;font-weight:600">↻ sync</button></div>
+    <button onclick="disconnectGCal()" style="margin-top:5px;width:100%;background:none;border:1px solid var(--bd);color:var(--t3);padding:4px;border-radius:6px;cursor:pointer;font-size:10px;font-family:inherit">disconnect</button>`;
   } else {
     el.innerHTML=`<button class="gcal-btn" onclick="startGCal()"><svg width="13" height="13" fill="none" viewBox="0 0 13 13"><rect x="1.5" y="2.5" width="10" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M1.5 6h10M5 2.5V1M8.5 2.5V1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Connect Google Calendar</button>`;
   }
@@ -595,9 +596,10 @@ function saveEntry(){
 function delEntry(){if(editId){entries=entries.filter(e=>e.id!==editId);save();closeModal();render();if(view==='task')renderTasks();}}
 
 function startGCal(){
-  // Remove the if statement that was blocking the execution
-const redirect='https://SunehoDM.github.io/labplan/';
-const p=new URLSearchParams({
+  if(GCAL_CLIENT_ID==='YOUR_GOOGLE_CLIENT_ID'){alert('Add your Google OAuth Client ID first.');return;}
+  // Build redirect URI - must exactly match what you put in Google Cloud Console
+  const redirect=location.origin+'/labplan/';
+  const p=new URLSearchParams({
     client_id:GCAL_CLIENT_ID,
     redirect_uri:redirect,
     response_type:'token',
@@ -606,12 +608,74 @@ const p=new URLSearchParams({
   });
   location.href='https://accounts.google.com/o/oauth2/v2/auth?'+p;
 }
-
 function disconnectGCal(){gcalToken=null;localStorage.removeItem('lp-gcal');render();toast('Disconnected from Google Calendar');}
+
 function handleOAuth(){
   const h=new URLSearchParams(location.hash.slice(1));const t=h.get('access_token');
-  if(t){gcalToken=t;localStorage.setItem('lp-gcal',t);history.replaceState(null,'',location.pathname);toast('Connected to Google Calendar ✓');render();}
+  if(t){
+    gcalToken=t;
+    localStorage.setItem('lp-gcal',t);
+    history.replaceState(null,'',location.pathname);
+    toast('Connected — syncing from Google Calendar…');
+    fetchFromGCal().then(()=>{render();toast('Synced ✓');});
+  } else if(gcalToken){
+    // Already connected — fetch on every page load to stay in sync
+    fetchFromGCal().then(()=>render());
+  }
 }
+
+async function fetchFromGCal(){
+  if(!gcalToken) return;
+  // Fetch events from 6 months ago to 6 months ahead
+  const now=new Date();
+  const tMin=new Date(now);tMin.setMonth(tMin.getMonth()-6);
+  const tMax=new Date(now);tMax.setMonth(tMax.getMonth()+6);
+  const CMAP={exp:'9',mail:'1',jc:'11',paper:'5',analysis:'2',official:'6',personal:'4',planexp:'3',meet:'7',reminder:'5',reagent:'10'};
+  const CMAP_REV=Object.fromEntries(Object.entries(CMAP).map(([k,v])=>[v,k]));
+  const CAT_LABEL_MAP={'Experiment':'exp','Mail':'mail','JC':'jc','Paper':'paper','Analysis':'analysis','Official':'official','Personal':'personal','Plan Exp':'planexp','Meet':'meet','Reminder':'reminder','Reagents':'reagent'};
+  try{
+    let url=`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${tMin.toISOString()}&timeMax=${tMax.toISOString()}&maxResults=500&singleEvents=true&orderBy=startTime`;
+    const res=await fetch(url,{headers:{'Authorization':'Bearer '+gcalToken}});
+    if(res.status===401){gcalToken=null;localStorage.removeItem('lp-gcal');render();return;}
+    if(!res.ok) return;
+    const data=await res.json();
+    const gcalEvents=data.items||[];
+    // Convert GCal events back to labplan entries
+    const fetched=[];
+    gcalEvents.forEach(ev=>{
+      // Only import events that have a [Category] tag in description (our events)
+      const desc=ev.description||'';
+      const catMatch=desc.match(/^\[([^\]]+)\]/);
+      if(!catMatch) return;
+      const catLabel=catMatch[1];
+      const catId=CAT_LABEL_MAP[catLabel]||'exp';
+      const isAllDay=!!(ev.start&&ev.start.date&&!ev.start.dateTime);
+      const date=isAllDay?ev.start.date:(ev.start.dateTime||'').split('T')[0];
+      const startTime=isAllDay?'':(ev.start.dateTime||'').split('T')[1]?.slice(0,5)||'';
+      const endTime=isAllDay?'':(ev.end.dateTime||'').split('T')[1]?.slice(0,5)||'';
+      const notes=desc.replace(/^\[[^\]]+\]\s*/,'');
+      const reminder=ev.reminders?.overrides?.[0]?.minutes??null;
+      // Find existing local entry by gcalId to preserve done status
+      const existing=entries.find(x=>x.gcalId===ev.id);
+      fetched.push({
+        id:existing?.id||(ev.id.slice(0,12)+Math.random().toString(36).slice(2,6)),
+        title:ev.summary||'',
+        cat:catId,date,startTime,endTime,notes,
+        reminderMin:reminder,
+        done:existing?.done||false,
+        gcalId:ev.id
+      });
+    });
+    if(fetched.length>0){
+      // Merge: keep local entries that aren't in GCal, add/update GCal ones
+      const gcalIds=new Set(fetched.map(e=>e.gcalId));
+      const localOnly=entries.filter(e=>!e.gcalId&&!gcalIds.has(e.gcalId));
+      entries=[...fetched,...localOnly];
+      save();
+    }
+  }catch(e){console.log('GCal fetch error',e);}
+}
+
 async function pushGCal(e){
   if(!gcalToken)return;
   const c=C(e.cat);
