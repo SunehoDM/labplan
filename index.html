@@ -38,6 +38,7 @@ body{height:100%;min-height:100vh;background:#eee9e2;font-family:-apple-system,'
 
 /* BODY LAYOUT */
 .body-row{flex:1;display:flex;min-height:0}
+.stoggle{display:none}
 
 /* SIDEBAR COLLAPSIBLE */
 .sidebar{width:210px;flex-shrink:0;background:var(--sf);border-right:1px solid var(--bd);display:flex;flex-direction:column;overflow-y:auto;padding:12px 8px;transition:width 0.2s,padding 0.2s;position:relative}
@@ -46,20 +47,17 @@ body{height:100%;min-height:100vh;background:#eee9e2;font-family:-apple-system,'
 .stoggle:hover{color:var(--t);background:var(--sf2)}
 .stoggle svg{transition:transform 0.2s}
 .sidebar.collapsed .stoggle svg{transform:scaleX(-1)}
-.menu-btn{display:none;background:var(--sf2);border:1px solid var(--bd);color:var(--t2);padding:5px 8px;border-radius:7px;cursor:pointer;align-items:center;justify-content:center}
+.menu-btn{display:flex;background:var(--sf2);border:1px solid var(--bd);color:var(--t2);padding:5px 8px;border-radius:7px;cursor:pointer;align-items:center;justify-content:center;flex-shrink:0}
 @media(max-width:640px){
   .app{min-height:100dvh}
   .sidebar{position:fixed;left:0;top:52px;bottom:0;z-index:50;width:240px;box-shadow:4px 0 20px rgba(0,0,0,.12)}
   .sidebar.collapsed{width:0;box-shadow:none}
-  .stoggle{display:none}
-  .menu-btn{display:flex}
   .mlabel{min-width:100px;font-size:12px}
   .mob-overlay{display:none;position:fixed;inset:0;top:52px;background:rgba(0,0,0,.3);z-index:49}
   .mob-overlay.on{display:block}
   .add-btn .btn-txt{display:none}
   .view-tabs{gap:2px}
   .tab{padding:5px 8px;font-size:11px}
-  /* Smaller calendar cells on mobile */
   .dcell{min-height:56px;padding:3px}
   .dnum{font-size:11px;margin-bottom:2px}
   .pill{font-size:9px;padding:1px 4px}
@@ -217,9 +215,6 @@ body{height:100%;min-height:100vh;background:#eee9e2;font-family:-apple-system,'
 <div class="body-row">
   <div class="mob-overlay" id="mob-overlay" onclick="toggleSidebar()"></div>
   <div class="sidebar" id="sidebar">
-    <div class="stoggle" onclick="toggleSidebar()" title="collapse">
-      <svg width="8" height="12" fill="none" viewBox="0 0 8 12"><path d="M6 1L2 6l4 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </div>
     <div class="slabel">categories</div>
     <div id="cat-list"></div>
     <div class="sdiv"></div>
@@ -357,9 +352,16 @@ function toast(m){const el=document.getElementById('toast');el.textContent=m;el.
 function toggleSidebar(){
   const s=document.getElementById('sidebar');
   const ov=document.getElementById('mob-overlay');
+  const btn=document.querySelector('.menu-btn svg');
   s.classList.toggle('collapsed');
   const collapsed=s.classList.contains('collapsed');
   if(ov) ov.classList.toggle('on',!collapsed);
+  // Flip icon: hamburger when collapsed, X when open
+  if(btn){
+    btn.innerHTML=collapsed
+      ?'<path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>'
+      :'<path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>';
+  }
   localStorage.setItem('lp-sidebar',collapsed?'0':'1');
 }
 
@@ -599,8 +601,16 @@ function saveEntry(){
 function delEntry(){if(editId){entries=entries.filter(e=>e.id!==editId);save();closeModal();render();if(view==='task')renderTasks();}}
 
 function startGCal(){
-  if(GCAL_CLIENT_ID==='YOUR_GOOGLE_CLIENT_ID'){alert('329885901714-88m62paiquaami8ebiqufsjq8t30hbce.apps.googleusercontent.com');return;}
-  const p=new URLSearchParams({client_id:GCAL_CLIENT_ID,redirect_uri:location.origin+location.pathname,response_type:'token',scope:GCAL_SCOPE,prompt:'consent'});
+  if(GCAL_CLIENT_ID==='YOUR_GOOGLE_CLIENT_ID'){alert('Add your Google OAuth Client ID first.');return;}
+  // Build redirect URI - must exactly match what you put in Google Cloud Console
+  const redirect=location.origin+'/labplan/';
+  const p=new URLSearchParams({
+    client_id:GCAL_CLIENT_ID,
+    redirect_uri:redirect,
+    response_type:'token',
+    scope:GCAL_SCOPE,
+    prompt:'consent'
+  });
   location.href='https://accounts.google.com/o/oauth2/v2/auth?'+p;
 }
 function disconnectGCal(){gcalToken=null;localStorage.removeItem('lp-gcal');render();toast('Disconnected from Google Calendar');}
@@ -637,9 +647,11 @@ if('serviceWorker' in navigator){
 handleOAuth();
 render();
 setView('month');
-// Restore sidebar state, auto-collapse on mobile
-const s=document.getElementById('sidebar');
-if(window.innerWidth<=600||localStorage.getItem('lp-sidebar')==='0') s.classList.add('collapsed');
+// Restore sidebar: collapse on mobile always, on desktop only if user previously closed it
+const _s=document.getElementById('sidebar');
+const _saved=localStorage.getItem('lp-sidebar');
+if(window.innerWidth<=640){_s.classList.add('collapsed');}
+else if(_saved==='0'){_s.classList.add('collapsed');}
 </script>
 </body>
 </html>
