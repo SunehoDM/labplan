@@ -595,8 +595,7 @@ function saveEntry(){
 function delEntry(){if(editId){entries=entries.filter(e=>e.id!==editId);save();closeModal();render();if(view==='task')renderTasks();}}
 
 function startGCal(){
-  if(GCAL_CLIENT_ID==='329885901714-88m62paiquaami8ebiqufsjq8t30hbce'){alert('Add your Google OAuth Client ID first.');return;}
-  // Build redirect URI - must exactly match what you put in Google Cloud Console
+  // Remove the if statement that was blocking the execution
   const redirect=location.origin+'/labplan/';
   const p=new URLSearchParams({
     client_id:GCAL_CLIENT_ID,
@@ -607,6 +606,7 @@ function startGCal(){
   });
   location.href='https://accounts.google.com/o/oauth2/v2/auth?'+p;
 }
+
 function disconnectGCal(){gcalToken=null;localStorage.removeItem('lp-gcal');render();toast('Disconnected from Google Calendar');}
 function handleOAuth(){
   const h=new URLSearchParams(location.hash.slice(1));const t=h.get('access_token');
