@@ -324,8 +324,10 @@ const CATS=[
   {id:'reminder', label:'Reminder',   bg:'#fffae0',bd:'#d8c040',tx:'#403000'},
   {id:'reagent',  label:'Reagents',   bg:'#e2faf2',bd:'#50d098',tx:'#0a3820'},
 ];
-const GCAL_CLIENT_ID='YOUR_GOOGLE_CLIENT_ID';
+const GCAL_CLIENT_ID='329885901714-88m62paiquaami8ebiqufsjq8t30hbce.apps.googleusercontent.com';
 const GCAL_SCOPE='https://www.googleapis.com/auth/calendar.events';
+
+const API_URL='https://matilda-backend.vercel.app/api/sync?app=labplan';
 
 let entries=JSON.parse(localStorage.getItem('lp-v3')||'[]');
 let mo=0,view='month',selDay=null,editId=null,selCat='exp',filterCat=null;
@@ -333,6 +335,18 @@ let gcalToken=localStorage.getItem('lp-gcal')||null;
 let selRemMin=null;
 
 function save(){localStorage.setItem('lp-v3',JSON.stringify(entries));}
+async function apiGet(){try{const r=await fetch(API_URL);if(!r.ok)return null;const d=await r.json();return d.entries||null;}catch{return null;}}
+async function apiPost(body){try{await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}catch{}}
+async function initSync(){
+  const remote=await apiGet();
+  if(remote!==null){
+    if(remote.length>0){const ld={};entries.forEach(e=>{if(e.done)ld[e.id]=true;});entries=remote.map(e=>({...e,done:ld[e.id]||e.done}));save();}
+    else if(entries.length>0){await apiPost({action:'save_all',entries});}
+    render();toast('Synced ✓');
+  }
+}
+async function apiSave(e){await apiPost({action:'upsert',entry:e});}
+async function apiDel(id){await apiPost({action:'delete',id});}
 function C(id){return CATS.find(c=>c.id===id)||CATS[0];}
 function fmt(d){const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');const dd=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${dd}`;}
 function tod(){return fmt(new Date());}
@@ -495,8 +509,8 @@ function renderGlass(){
     :`<div class="gempty">nothing today</div>`;
 }
 
-function toggleDone(id){const e=entries.find(x=>x.id===id);if(e){e.done=!e.done;save();render();if(view==='task')renderTasks();if(view==='day')renderDay(selDay);}}
-function delById(id){entries=entries.filter(e=>e.id!==id);save();render();if(view==='task')renderTasks();}
+function toggleDone(id){const e=entries.find(x=>x.id===id);if(e){e.done=!e.done;save();apiPost({action:'toggle_done',id});render();if(view==='task')renderTasks();if(view==='day')renderDay(selDay);}}
+function delById(id){entries=entries.filter(e=>e.id!==id);save();apiDel(id);render();if(view==='task')renderTasks();}
 
 function syncDate(){
   const dd=document.getElementById('fd-dd').value;
@@ -591,9 +605,10 @@ function saveEntry(){
   save();closeModal();render();
   if(view==='day')renderDay(selDay);
   if(view==='task')renderTasks();
+  apiSave(e);
   if(gcalToken)pushGCal(e);
 }
-function delEntry(){if(editId){entries=entries.filter(e=>e.id!==editId);save();closeModal();render();if(view==='task')renderTasks();}}
+function delEntry(){if(editId){entries=entries.filter(e=>e.id!==editId);save();apiDel(editId);closeModal();render();if(view==='task')renderTasks();}}
 
 function startGCal(){
   if(GCAL_CLIENT_ID==='YOUR_GOOGLE_CLIENT_ID'){alert('Add your Google OAuth Client ID first.');return;}
@@ -705,6 +720,7 @@ if('serviceWorker' in navigator){
 handleOAuth();
 render();
 setView('month');
+initSync();
 // Restore sidebar: collapse on mobile always, on desktop only if user previously closed it
 const _s=document.getElementById('sidebar');
 const _saved=localStorage.getItem('lp-sidebar');
