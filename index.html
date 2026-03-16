@@ -596,8 +596,8 @@ function delEntry(){if(editId){entries=entries.filter(e=>e.id!==editId);save();c
 
 function startGCal(){
   // Remove the if statement that was blocking the execution
-  const redirect=location.origin+'/labplan/';
-  const p=new URLSearchParams({
+const redirect='https://SunehoDM.github.io/labplan/';
+const p=new URLSearchParams({
     client_id:GCAL_CLIENT_ID,
     redirect_uri:redirect,
     response_type:'token',
