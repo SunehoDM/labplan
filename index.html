@@ -46,7 +46,32 @@ body{height:100%;min-height:100vh;background:#eee9e2;font-family:-apple-system,'
 .stoggle:hover{color:var(--t);background:var(--sf2)}
 .stoggle svg{transition:transform 0.2s}
 .sidebar.collapsed .stoggle svg{transform:scaleX(-1)}
-@media(max-width:600px){.sidebar{display:none}.mlabel{min-width:110px;font-size:12px}}
+.menu-btn{display:none;background:var(--sf2);border:1px solid var(--bd);color:var(--t2);padding:5px 8px;border-radius:7px;cursor:pointer;align-items:center;justify-content:center}
+@media(max-width:640px){
+  .app{min-height:100dvh}
+  .sidebar{position:fixed;left:0;top:52px;bottom:0;z-index:50;width:240px;box-shadow:4px 0 20px rgba(0,0,0,.12)}
+  .sidebar.collapsed{width:0;box-shadow:none}
+  .stoggle{display:none}
+  .menu-btn{display:flex}
+  .mlabel{min-width:100px;font-size:12px}
+  .mob-overlay{display:none;position:fixed;inset:0;top:52px;background:rgba(0,0,0,.3);z-index:49}
+  .mob-overlay.on{display:block}
+  .add-btn .btn-txt{display:none}
+  .view-tabs{gap:2px}
+  .tab{padding:5px 8px;font-size:11px}
+  /* Smaller calendar cells on mobile */
+  .dcell{min-height:56px;padding:3px}
+  .dnum{font-size:11px;margin-bottom:2px}
+  .pill{font-size:9px;padding:1px 4px}
+  .mgrid{gap:2px}
+  .dow-cell{font-size:9px}
+  .month-wrap{padding:6px}
+}
+@media(max-width:400px){
+  .dcell{min-height:44px;padding:2px}
+  .pill{display:none}
+  .pmore{display:none}
+}
 
 .slabel{font-size:10px;font-weight:700;letter-spacing:.09em;color:var(--t3);text-transform:uppercase;margin:0 4px 5px}
 .cat-btn{display:flex;align-items:center;gap:7px;padding:6px 7px;border-radius:7px;border:none;background:none;width:100%;text-align:left;font-size:12px;color:var(--t2);cursor:pointer;font-weight:600}
@@ -165,6 +190,9 @@ body{height:100%;min-height:100vh;background:#eee9e2;font-family:-apple-system,'
 <div class="app">
 
 <div class="topbar">
+  <button class="menu-btn" onclick="toggleSidebar()">
+    <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+  </button>
   <div class="logo">lab<span>plan</span></div>
   <div class="nav-center">
     <button class="nav-btn" onclick="navMonth(-1)">
@@ -182,11 +210,12 @@ body{height:100%;min-height:100vh;background:#eee9e2;font-family:-apple-system,'
   </div>
   <button class="add-btn" onclick="openModal()">
     <svg width="12" height="12" fill="none" viewBox="0 0 12 12"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
-    new
+    <span class="btn-txt">new</span>
   </button>
 </div>
 
 <div class="body-row">
+  <div class="mob-overlay" id="mob-overlay" onclick="toggleSidebar()"></div>
   <div class="sidebar" id="sidebar">
     <div class="stoggle" onclick="toggleSidebar()" title="collapse">
       <svg width="8" height="12" fill="none" viewBox="0 0 8 12"><path d="M6 1L2 6l4 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -327,8 +356,11 @@ function toast(m){const el=document.getElementById('toast');el.textContent=m;el.
 
 function toggleSidebar(){
   const s=document.getElementById('sidebar');
+  const ov=document.getElementById('mob-overlay');
   s.classList.toggle('collapsed');
-  localStorage.setItem('lp-sidebar',s.classList.contains('collapsed')?'0':'1');
+  const collapsed=s.classList.contains('collapsed');
+  if(ov) ov.classList.toggle('on',!collapsed);
+  localStorage.setItem('lp-sidebar',collapsed?'0':'1');
 }
 
 function navMonth(d){mo+=d;render();}
